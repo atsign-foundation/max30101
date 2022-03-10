@@ -1,6 +1,6 @@
 name: max30101
-description: max30101 sensor driver
-version: 1.0.0-RC
+description: Package which integrates with the max30101 sensor, producing illustrative heart rate and O2 saturation readings
+version: 1.0.0-RC1
 repository: https://github.com/atsign-foundation/max30101
 
 environment:
