@@ -12,7 +12,7 @@ const int redLEDCurrentAdjustmentMs = 250; // adjust red led intensity every 500
 const int startingIRLEDCurrent = 64; // about 12.8 mA - see table 8 "LED Current Control"
 const int startingRedLEDCurrent = 32; // about 6.4 mA - see table 8 "LED Current Control"
 
-const double alpha = 0.95;  //dc filter alpha value
+const double alpha = 0.95; //dc filter alpha value
 const int meanFilterSize = 15;
 
 const int pulseMinThreshold = 100; //300 is good for finger, but for wrist you need like 20, and there is sh*t-loads of noise
@@ -38,11 +38,7 @@ class PulseOxymeterData {
   double dcFilteredRed = 0;
 }
 
-enum PulseStateMachine {
-  pulseIdle,
-  pulseTraceUp,
-  pulseTraceDown
-}
+enum PulseStateMachine { pulseIdle, pulseTraceUp, pulseTraceDown }
 
 class SensorFIFOSample {
   int rawIR = 0;
@@ -56,12 +52,12 @@ class DCFilterData {
 }
 
 class ButterworthFilterData {
-  List<double> v = [0,0]; // size is 2
+  List<double> v = [0, 0]; // size is 2
   double result = 0.0;
 }
 
 class MeanDiffFilterData {
-  List<double> values = List<double>.filled(meanFilterSize, 0.0, growable:false);
+  List<double> values = List<double>.filled(meanFilterSize, 0.0, growable: false);
   int index = 0;
   double sum = 0;
   int count = 0;
@@ -75,6 +71,7 @@ void printWithTimestamp(String message) {
 
 class Max30101 {
   static final Map<String, Register> _registerMap = {};
+
   static Map<String, Register> getRegisterMap() {
     _setupRegisters();
     return _registerMap;
@@ -107,8 +104,9 @@ class Max30101 {
 
     _registerMap['SPO2_CONFIG'] = Register('SPO2_CONFIG', 0x0A)
       ..addBits('adc_range_nA', '01100000', {2048: '00', 4096: '01', 8192: '10', 16384: '11'})
-      ..addBits('sample_rate_sps', '00011100', {50:'000',100:'001',200:'010',400:'011',800:'100',1000:'101',1600:'110',3200:'111'})
-      ..addBits('led_pw_us', '00000011', {69:'00',118:'01',215:'10',411:'11'});
+      ..addBits(
+          'sample_rate_sps', '00011100', {50: '000', 100: '001', 200: '010', 400: '011', 800: '100', 1000: '101', 1600: '110', 3200: '111'})
+      ..addBits('led_pw_us', '00000011', {69: '00', 118: '01', 215: '10', 411: '11'});
 
     _registerMap['LED1_PULSE_AMPLITUDE'] = Register('LED1_PULSE_AMPLITUDE', 0x0C);
     _registerMap['LED2_PULSE_AMPLITUDE'] = Register('LED2_PULSE_AMPLITUDE', 0x0D);
@@ -116,11 +114,11 @@ class Max30101 {
     _registerMap['LED4_PULSE_AMPLITUDE'] = Register('LED4_PULSE_AMPLITUDE', 0x0F);
 
     _registerMap['LED_MODE_CONTROL_SLOTS_1_2'] = Register('LED_MODE_CONTROL_SLOTS_1_2', 0x11)
-      ..addBits('slot1', '00001111', {'off': '0000', 'red':'0001', 'ir':'0010', 'green':'0011'})
-      ..addBits('slot2', '11110000', {'off': '0000', 'red':'0001', 'ir':'0010', 'green':'0011'});
+      ..addBits('slot1', '00001111', {'off': '0000', 'red': '0001', 'ir': '0010', 'green': '0011'})
+      ..addBits('slot2', '11110000', {'off': '0000', 'red': '0001', 'ir': '0010', 'green': '0011'});
     _registerMap['LED_MODE_CONTROL_SLOTS_3_4'] = Register('LED_MODE_CONTROL_SLOTS_3_4', 0x12)
-      ..addBits('slot3', '00001111', {'off': '0000', 'red':'0001', 'ir':'0010', 'green':'0011'})
-      ..addBits('slot4', '11110000', {'off': '0000', 'red':'0001', 'ir':'0010', 'green':'0011'});
+      ..addBits('slot3', '00001111', {'off': '0000', 'red': '0001', 'ir': '0010', 'green': '0011'})
+      ..addBits('slot4', '11110000', {'off': '0000', 'red': '0001', 'ir': '0010', 'green': '0011'});
   }
 
   static int setBits(int byteValue, String registerName, String bitsName, dynamic value) {
@@ -133,10 +131,12 @@ class Max30101 {
       throw Exception("Bits $bitsName not mapped for Register $registerName");
     }
 
-    if (bits.bitNumbers.length == 1) { // set just one bit to true or false
+    if (bits.bitNumbers.length == 1) {
+      // set just one bit to true or false
       // value must be boolean
       return _setSingleBit(byteValue, register, bits, value);
-    } else { // set a group of bits to a value we look up from our adapter map based on supplied value
+    } else {
+      // set a group of bits to a value we look up from our adapter map based on supplied value
       return _setMultipleBits(byteValue, register, bits, value);
     }
   }
@@ -147,11 +147,13 @@ class Max30101 {
       throw Exception("Value $value is not mapped to a bitmask for ${register.name}.${bits.name}");
     }
     if (valueLookup.length != bits.bitNumbers.length) {
-      throw Exception("Bad mapping: looked up $value and got $valueLookup which has length ${valueLookup
-          .length}, but ${register.name}.${bits.name} has mask ${bits.mask} length ${bits.bitNumbers.length}");
+      throw Exception(
+          "Bad mapping: looked up $value and got $valueLookup which has length ${valueLookup.length}, but ${register.name}.${bits.name} has mask ${bits.mask} length ${bits.bitNumbers.length}");
     }
 
-    for (int bitNumberIndex = 0, valueIndex = bits.bitNumbers.length-1; bitNumberIndex < bits.bitNumbers.length; bitNumberIndex++, valueIndex--) {
+    for (int bitNumberIndex = 0, valueIndex = bits.bitNumbers.length - 1;
+        bitNumberIndex < bits.bitNumbers.length;
+        bitNumberIndex++, valueIndex--) {
       int bitNumber = bits.bitNumbers[bitNumberIndex];
       if (valueLookup[valueIndex] == '1') {
         byteValue = BitwiseOperators.setBit(byteValue, bitNumber);
@@ -166,8 +168,7 @@ class Max30101 {
     // value must be boolean
     if (value is! bool) {
       throw Exception("${register.name}.${bits.name} is single bit, value must be boolean but was $value");
-    }
-    else {
+    } else {
       int outputValue = inputValue;
 
       if (value == true) {
@@ -197,11 +198,15 @@ class Max30101 {
   /// Check table 8 in datasheet on page 19. You can't just throw in sample rate and pulse width randomly.
   /// 100hz + 1600us is max for that resolution
   /// device is injectable so you can inject mocks / whatever for testing purposes
-  Max30101(this.wrapper, this.captureSamples, {this.ledPower = 6.4, this.ledsEnabled = 2,
-            this.sampleRate = 100, this.sampleAverage = 1,
-            this.pulseWidth = 411, this.adcRange = 16384,
-            this.highResMode = true, this.debug = true})
-  {
+  Max30101(this.wrapper, this.captureSamples,
+      {this.ledPower = 6.4,
+      this.ledsEnabled = 2,
+      this.sampleRate = 100,
+      this.sampleAverage = 1,
+      this.pulseWidth = 411,
+      this.adcRange = 16384,
+      this.highResMode = true,
+      this.debug = true}) {
     if (captureSamples) {
       captureFile = File('max30101.capture.txt');
     }
@@ -227,7 +232,6 @@ class Max30101 {
     dcFilterRed.w = 0;
     dcFilterRed.result = 0;
 
-
     lpbFilterIR.v[0] = 0;
     lpbFilterIR.v[1] = 0;
     lpbFilterIR.result = 0;
@@ -236,12 +240,10 @@ class Max30101 {
     meanDiffIR.sum = 0;
     meanDiffIR.count = 0;
 
-
     valuesBPM[0] = 0;
     valuesBPMSum = 0;
     valuesBPMCount = 0;
     bpmIndex = 0;
-
 
     irACValueSqSum = 0;
     redACValueSqSum = 0;
@@ -260,7 +262,7 @@ class Max30101 {
 
   PulseStateMachine currentPulseDetectorState = PulseStateMachine.pulseIdle;
   double currentBPM = 0;
-  List<double> valuesBPM = List<double>.filled(pulseBpmSampleSize, 0, growable:false);
+  List<double> valuesBPM = List<double>.filled(pulseBpmSampleSize, 0, growable: false);
   double valuesBPMSum = 0;
   int valuesBPMCount = 0;
   int bpmIndex = 0;
@@ -278,8 +280,6 @@ class Max30101 {
   int samplesRecorded = 0;
   int pulsesDetected = 0;
   double currentSaO2Value = 0;
-
-
 
   //     def setup(self, led_power=6.4, sample_average=4, leds_enable=3, sample_rate=400, pulse_width=215, adc_range=16384, timeout=5.0):
   void setupDevice(
@@ -341,7 +341,7 @@ class Max30101 {
     int startTime = DateTime.now().millisecondsSinceEpoch;
     while (DateTime.now().millisecondsSinceEpoch - startTime < timeoutMillis) {
       int configValue = readRegister('MODE_CONFIG', true);
-      if (! BitwiseOperators.isBitSet(configValue, _registerMap['MODE_CONFIG']!.bits['reset']!.bitNumbers[0])) {
+      if (!BitwiseOperators.isBitSet(configValue, _registerMap['MODE_CONFIG']!.bits['reset']!.bitNumbers[0])) {
         break;
       }
       sleep(Duration(milliseconds: 250));
@@ -373,7 +373,7 @@ class Max30101 {
       data.addAll(bytesRead);
       if (captureSamples) {
         var logMessage = '${DateTime.now().microsecondsSinceEpoch - captureStartTimeMicros} | $bytesRead';
-        await captureFile.writeAsString('$logMessage\n', flush: true, mode:FileMode.append);
+        await captureFile.writeAsString('$logMessage\n', flush: true, mode: FileMode.append);
         printWithTimestamp(logMessage);
       }
       bytesToRead -= 32;
@@ -383,13 +383,13 @@ class Max30101 {
 
     List<SensorFIFOSample> result = [];
 
-    for (int i = 0; i < data.length; i+=3 * ledsEnabled) {
+    for (int i = 0; i < data.length; i += 3 * ledsEnabled) {
       SensorFIFOSample sample = SensorFIFOSample();
       // 3 bytes for each LED : Red, IR, Green
-      sample.rawRed = data[i] << 16 | data[i+1] << 8 | data[i+2];
-      sample.rawIR = data[i+3] << 16 | data[i+4] << 8 | data[i+5];
+      sample.rawRed = data[i] << 16 | data[i + 1] << 8 | data[i + 2];
+      sample.rawIR = data[i + 3] << 16 | data[i + 4] << 8 | data[i + 5];
       if (ledsEnabled >= 3) {
-        sample.rawGreen = data[i+6] << 16 | data[i+7] << 8 | data[i+8];
+        sample.rawGreen = data[i + 6] << 16 | data[i + 7] << 8 | data[i + 8];
       }
 
       result.add(sample);
@@ -418,7 +418,8 @@ class Max30101 {
         latestValues.saO2 = double.parse(latestValues.saO2.toStringAsFixed(1));
         latestValues.heartBPM = double.parse(latestValues.heartBPM.toStringAsFixed(1));
 
-        printWithTimestamp ("runSampler calling onBeat called with beatDetected:${latestValues.pulseDetected} bpm:${latestValues.heartBPM} sao2:${latestValues.saO2}");
+        printWithTimestamp(
+            "runSampler calling onBeat called with beatDetected:${latestValues.pulseDetected} bpm:${latestValues.heartBPM} sao2:${latestValues.saO2}");
 
         onBeat(latestValues.pulseDetected, latestValues.heartBPM, latestValues.saO2);
 
@@ -499,14 +500,14 @@ class Max30101 {
     result.dcFilteredIR = dcFilterIR.result;
     result.dcFilteredRed = dcFilterRed.result;
 
-
     return result;
   }
 
-  double  prevSensorValue = 0;
+  double prevSensorValue = 0;
   int valuesWentDown = 0;
   int currentBeat = 0;
   int lastBeat = 0;
+
   bool detectPulse(double sensorValue) {
     if (sensorValue > pulseMaxThreshold) {
       currentPulseDetectorState = PulseStateMachine.pulseIdle;
@@ -530,8 +531,7 @@ class Max30101 {
         if (sensorValue > prevSensorValue) {
           currentBeat = DateTime.now().millisecondsSinceEpoch;
           lastBeatThreshold = sensorValue;
-        }
-        else {
+        } else {
           if (debug == true) {
             printWithTimestamp("Peak reached: $sensorValue $prevSensorValue");
           }
@@ -592,13 +592,11 @@ class Max30101 {
 
   void balanceIntensities(double redLedDC, double irLedDC) {
     if (DateTime.now().millisecondsSinceEpoch - lastREDLedCurrentCheck >= redLEDCurrentAdjustmentMs) {
-
       if (irLedDC - redLedDC > magicAcceptableLEDIntensityDiff && redLEDCurrent < irLEDCurrent) {
         printWithTimestamp("RED LED Current ++");
         redLEDCurrent++;
         setLEDCurrents(redLEDCurrent, irLEDCurrent);
-      }
-      else if (redLedDC - irLedDC > magicAcceptableLEDIntensityDiff && redLEDCurrent > 0) {
+      } else if (redLedDC - irLedDC > magicAcceptableLEDIntensityDiff && redLEDCurrent > 0) {
         printWithTimestamp("RED LED Current --");
         redLEDCurrent--;
         setLEDCurrents(redLEDCurrent, irLEDCurrent);
@@ -613,7 +611,6 @@ class Max30101 {
 
     writeRegister('LED2_PULSE_AMPLITUDE', _irLedCurrent, true);
   }
-
 
   DCFilterData dcRemoval(double x, double previousW, double alpha) {
     DCFilterData filtered = DCFilterData();
@@ -650,7 +647,8 @@ class Max30101 {
     return avg - M;
   }
 
-  int writeRegister(String registerName, int byteValue, logIt) { // byte arguments
+  int writeRegister(String registerName, int byteValue, logIt) {
+    // byte arguments
     if (logIt) {
       printWithTimestamp("Writing $byteValue to $registerName");
     }
