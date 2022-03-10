@@ -1,6 +1,7 @@
 name: max30101
 description: max30101 sensor driver
-version: 1.0.0
+version: 1.0.0-RC
+repository: https://github.com/atsign-foundation/max30101
 
 environment:
   sdk: '>=2.15.1 <3.0.0'
