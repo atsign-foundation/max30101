@@ -21,7 +21,7 @@ const int pulseGoDownThreshold = 1;
 
 const int pulseBpmSampleSize = 10; //Moving average size
 
-class PulseOxymeterData {
+class _PulseOxymeterData {
   bool pulseDetected = false;
   double heartBPM = 0;
 
@@ -38,25 +38,25 @@ class PulseOxymeterData {
   double dcFilteredRed = 0;
 }
 
-enum PulseStateMachine { pulseIdle, pulseTraceUp, pulseTraceDown }
+enum _PulseStateMachine { pulseIdle, pulseTraceUp, pulseTraceDown }
 
-class SensorFIFOSample {
+class _SensorFIFOSample {
   int rawIR = 0;
   int rawRed = 0;
   int rawGreen = 0;
 }
 
-class DCFilterData {
+class _DCFilterData {
   double w = 0;
   double result = 0;
 }
 
-class ButterworthFilterData {
+class _ButterworthFilterData {
   List<double> v = [0, 0]; // size is 2
   double result = 0.0;
 }
 
-class MeanDiffFilterData {
+class _MeanDiffFilterData {
   List<double> values = List<double>.filled(meanFilterSize, 0.0, growable: false);
   int index = 0;
   double sum = 0;
@@ -126,59 +126,7 @@ class Max30101 {
     if (register == null) {
       throw Exception("Register $registerName not mapped");
     }
-    Bits? bits = register.bits[bitsName];
-    if (bits == null) {
-      throw Exception("Bits $bitsName not mapped for Register $registerName");
-    }
-
-    if (bits.bitNumbers.length == 1) {
-      // set just one bit to true or false
-      // value must be boolean
-      return _setSingleBit(byteValue, register, bits, value);
-    } else {
-      // set a group of bits to a value we look up from our adapter map based on supplied value
-      return _setMultipleBits(byteValue, register, bits, value);
-    }
-  }
-
-  static int _setMultipleBits(int byteValue, Register register, Bits bits, dynamic value) {
-    String? valueLookup = bits.adapter[value];
-    if (valueLookup == null) {
-      throw Exception("Value $value is not mapped to a bitmask for ${register.name}.${bits.name}");
-    }
-    if (valueLookup.length != bits.bitNumbers.length) {
-      throw Exception(
-          "Bad mapping: looked up $value and got $valueLookup which has length ${valueLookup.length}, but ${register.name}.${bits.name} has mask ${bits.mask} length ${bits.bitNumbers.length}");
-    }
-
-    for (int bitNumberIndex = 0, valueIndex = bits.bitNumbers.length - 1;
-        bitNumberIndex < bits.bitNumbers.length;
-        bitNumberIndex++, valueIndex--) {
-      int bitNumber = bits.bitNumbers[bitNumberIndex];
-      if (valueLookup[valueIndex] == '1') {
-        byteValue = BitwiseOperators.setBit(byteValue, bitNumber);
-      } else {
-        byteValue = BitwiseOperators.clearBit(byteValue, bitNumber);
-      }
-    }
-    return byteValue;
-  }
-
-  static int _setSingleBit(int inputValue, Register register, Bits bits, dynamic value) {
-    // value must be boolean
-    if (value is! bool) {
-      throw Exception("${register.name}.${bits.name} is single bit, value must be boolean but was $value");
-    } else {
-      int outputValue = inputValue;
-
-      if (value == true) {
-        outputValue = BitwiseOperators.setBit(inputValue, bits.bitNumbers[0]);
-      } else {
-        outputValue = BitwiseOperators.clearBit(inputValue, bits.bitNumbers[0]);
-      }
-
-      return outputValue;
-    }
+    return BitwiseUtils.setBits(byteValue, register, bitsName, value);
   }
 
   double ledPower;
@@ -260,7 +208,7 @@ class Max30101 {
 
   int lastREDLedCurrentCheck = 0;
 
-  PulseStateMachine currentPulseDetectorState = PulseStateMachine.pulseIdle;
+  _PulseStateMachine currentPulseDetectorState = _PulseStateMachine.pulseIdle;
   double currentBPM = 0;
   List<double> valuesBPM = List<double>.filled(pulseBpmSampleSize, 0, growable: false);
   double valuesBPMSum = 0;
@@ -268,12 +216,12 @@ class Max30101 {
   int bpmIndex = 0;
   double lastBeatThreshold = 0;
 
-  SensorFIFOSample prevFifo = SensorFIFOSample();
+  _SensorFIFOSample prevFifo = _SensorFIFOSample();
 
-  DCFilterData dcFilterIR = DCFilterData();
-  DCFilterData dcFilterRed = DCFilterData();
-  ButterworthFilterData lpbFilterIR = ButterworthFilterData();
-  MeanDiffFilterData meanDiffIR = MeanDiffFilterData();
+  _DCFilterData dcFilterIR = _DCFilterData();
+  _DCFilterData dcFilterRed = _DCFilterData();
+  _ButterworthFilterData lpbFilterIR = _ButterworthFilterData();
+  _MeanDiffFilterData meanDiffIR = _MeanDiffFilterData();
 
   double irACValueSqSum = 0;
   double redACValueSqSum = 0;
@@ -341,7 +289,7 @@ class Max30101 {
     int startTime = DateTime.now().millisecondsSinceEpoch;
     while (DateTime.now().millisecondsSinceEpoch - startTime < timeoutMillis) {
       int configValue = readRegister('MODE_CONFIG', true);
-      if (!BitwiseOperators.isBitSet(configValue, _registerMap['MODE_CONFIG']!.bits['reset']!.bitNumbers[0])) {
+      if (!BitwiseUtils.isBitSet(configValue, _registerMap['MODE_CONFIG']!.bits['reset']!.bitNumbers[0])) {
         break;
       }
       sleep(Duration(milliseconds: 250));
@@ -354,7 +302,7 @@ class Max30101 {
     writeRegister('FIFO_OVERFLOW', 0, logIt);
   }
 
-  Future<List<SensorFIFOSample>> readFIFO() async {
+  Future<List<_SensorFIFOSample>> readFIFO() async {
     int fifoReadPointer = readRegister('FIFO_READ', false);
     int fifoWritePointer = readRegister('FIFO_WRITE', false);
     if (fifoReadPointer == fifoWritePointer) {
@@ -381,10 +329,10 @@ class Max30101 {
 
     clearFIFO(false);
 
-    List<SensorFIFOSample> result = [];
+    List<_SensorFIFOSample> result = [];
 
     for (int i = 0; i < data.length; i += 3 * ledsEnabled) {
-      SensorFIFOSample sample = SensorFIFOSample();
+      _SensorFIFOSample sample = _SensorFIFOSample();
       // 3 bytes for each LED : Red, IR, Green
       sample.rawRed = data[i] << 16 | data[i + 1] << 8 | data[i + 2];
       sample.rawIR = data[i + 3] << 16 | data[i + 4] << 8 | data[i + 5];
@@ -411,7 +359,7 @@ class Max30101 {
 
     while (true) {
       // take sample from the device and process it
-      PulseOxymeterData latestValues = await readSamplesAndCalculate();
+      _PulseOxymeterData latestValues = await readSamplesAndCalculate();
       lastReadAndCalculateTime = DateTime.now().microsecondsSinceEpoch;
 
       if (latestValues.pulseDetected || DateTime.now().microsecondsSinceEpoch - lastCalledOnBeat > 2000000) {
@@ -435,8 +383,8 @@ class Max30101 {
     }
   }
 
-  Future<PulseOxymeterData> readSamplesAndCalculate() async {
-    PulseOxymeterData result = PulseOxymeterData()
+  Future<_PulseOxymeterData> readSamplesAndCalculate() async {
+    _PulseOxymeterData result = _PulseOxymeterData()
       ..pulseDetected = false
       ..heartBPM = .0
       ..irCardiogram = 0.0
@@ -447,10 +395,10 @@ class Max30101 {
       ..dcFilteredIR = 0.0
       ..dcFilteredRed = 0.0;
 
-    List<SensorFIFOSample> fifoSampleList = await readFIFO();
+    List<_SensorFIFOSample> fifoSampleList = await readFIFO();
 
     for (int i = 0; i < fifoSampleList.length; i++) {
-      SensorFIFOSample sample = fifoSampleList[i];
+      _SensorFIFOSample sample = fifoSampleList[i];
 
       dcFilterIR = dcRemoval(sample.rawIR.toDouble(), dcFilterIR.w, alpha);
       dcFilterRed = dcRemoval(sample.rawRed.toDouble(), dcFilterRed.w, alpha);
@@ -472,7 +420,7 @@ class Max30101 {
           printWithTimestamp("RMS Ratio: $ratioRMS");
         }
 
-        //This is the adjusted standard model, so it shows 0.89 as 94% saturation. It is probably far from correct, requires proper empirical calibration
+        // This is probably far from correct, requires proper empirical calibration
         double ratioToApply = ratioRMS;
         if (ratioToApply > 1.0) {
           ratioToApply = 1.0;
@@ -510,7 +458,7 @@ class Max30101 {
 
   bool detectPulse(double sensorValue) {
     if (sensorValue > pulseMaxThreshold) {
-      currentPulseDetectorState = PulseStateMachine.pulseIdle;
+      currentPulseDetectorState = _PulseStateMachine.pulseIdle;
       prevSensorValue = 0;
       lastBeat = 0;
       currentBeat = 0;
@@ -520,14 +468,14 @@ class Max30101 {
     }
 
     switch (currentPulseDetectorState) {
-      case PulseStateMachine.pulseIdle:
+      case _PulseStateMachine.pulseIdle:
         if (sensorValue >= pulseMinThreshold) {
-          currentPulseDetectorState = PulseStateMachine.pulseTraceUp;
+          currentPulseDetectorState = _PulseStateMachine.pulseTraceUp;
           valuesWentDown = 0;
         }
         break;
 
-      case PulseStateMachine.pulseTraceUp:
+      case _PulseStateMachine.pulseTraceUp:
         if (sensorValue > prevSensorValue) {
           currentBeat = DateTime.now().millisecondsSinceEpoch;
           lastBeatThreshold = sensorValue;
@@ -569,19 +517,19 @@ class Max30101 {
             printWithTimestamp("Avg. BPM: $currentBPM");
           }
 
-          currentPulseDetectorState = PulseStateMachine.pulseTraceDown;
+          currentPulseDetectorState = _PulseStateMachine.pulseTraceDown;
 
           return true;
         }
         break;
 
-      case PulseStateMachine.pulseTraceDown:
+      case _PulseStateMachine.pulseTraceDown:
         if (sensorValue < prevSensorValue) {
           valuesWentDown++;
         }
 
         if (sensorValue < pulseMinThreshold) {
-          currentPulseDetectorState = PulseStateMachine.pulseIdle;
+          currentPulseDetectorState = _PulseStateMachine.pulseIdle;
         }
         break;
     }
@@ -612,8 +560,8 @@ class Max30101 {
     writeRegister('LED2_PULSE_AMPLITUDE', _irLedCurrent, true);
   }
 
-  DCFilterData dcRemoval(double x, double previousW, double alpha) {
-    DCFilterData filtered = DCFilterData();
+  _DCFilterData dcRemoval(double x, double previousW, double alpha) {
+    _DCFilterData filtered = _DCFilterData();
 
     filtered.w = x + alpha * previousW;
     filtered.result = filtered.w - previousW;
@@ -621,7 +569,7 @@ class Max30101 {
     return filtered;
   }
 
-  void lowPassButterworthFilter(double x, ButterworthFilterData filterResult) {
+  void lowPassButterworthFilter(double x, _ButterworthFilterData filterResult) {
     filterResult.v[0] = filterResult.v[1];
 
     filterResult.v[1] = (2.452372752527856026e-1 * x) + (0.50952544949442879485 * filterResult.v[0]);
@@ -629,7 +577,7 @@ class Max30101 {
     filterResult.result = filterResult.v[0] + filterResult.v[1];
   }
 
-  double meanDiff(double M, MeanDiffFilterData filterValues) {
+  double meanDiff(double M, _MeanDiffFilterData filterValues) {
     double avg = 0;
 
     filterValues.sum -= filterValues.values[filterValues.index];
