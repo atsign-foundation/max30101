@@ -1,3 +1,7 @@
+## 1.0.0-RC2
+
+- Updated README: Fixed broken links to the mwc_demo repo
+
 ## 1.0.0-RC1
 
 - Cosmetic changes (dart format, better package description in pubspec.yaml)
