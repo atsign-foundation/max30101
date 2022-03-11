@@ -22,15 +22,15 @@ or in life-critical situations.
 
 ## Features
 
-See https://github.com/atsign-foundation/mwc_demo/README.md
+See https://github.com/atsign-foundation/mwc_demo
 
 ## Getting started
 
-See https://github.com/atsign-foundation/mwc_demo/README.md
+See https://github.com/atsign-foundation/mwc_demo
 
 ## Usage
 
-See https://github.com/atsign-foundation/mwc_demo/README.md
+See https://github.com/atsign-foundation/mwc_demo
 
 ## Additional information
 
